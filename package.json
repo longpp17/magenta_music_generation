@@ -1,0 +1,19 @@
+
+
+{
+  "name": "magenta_music_generation",
+  "version": "1.0.0",
+
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@magenta/music": "^1.23.1",
+    "node-wav-player": "^0.2.0",
+    "rxjs": "^7.8.1",
+    "rxjs-worker-subject": "^1.0.0"
+  }
+}
