@@ -1,8 +1,8 @@
 import { Observable, of, Subject, BehaviorSubject, combineLatest } from 'rxjs';
-import { observeOn, map, bufferCount, filter, catchError } from 'rxjs/operators';
+import { observeOn, map, bufferCount, filter, catchError, tap } from 'rxjs/operators';
 import { asyncScheduler } from 'rxjs';
 import { NoteSignals, MidiData, quantizedMidiData, QuantizationConfig, 
-    preQuantizedMidiData, quantizeMidi, configurePreQuantizedMidiData} from "./NoteSignals.js"
+    preQuantizedMidiData, quantizeMidi, configurePreQuantizedMidiData, GenerateSignal} from "./NoteSignals.js"
 import { WorkerSubject } from 'rxjs-worker-subject';
 import { INoteSequence } from '@magenta/music';
 import { Worker } from 'worker_threads';
@@ -12,12 +12,13 @@ const noteSignals = new Subject<NoteSignals>();
 var latestMusicNote : Array<MidiData> = []; // TODO: type this
 noteSignals.pipe(
     filter((noteSignal: NoteSignals) => noteSignal.head === "music_note"),
+    
     map((noteSignal: NoteSignals) => noteSignal.content as MidiData),
+    tap((midi: MidiData) => console.log("receive noteSignals" + midi.pitch + midi.velocity + midi.startTime + midi.endTime)),
     bufferCount(8)    
 ).subscribe((data: Array<MidiData>) => {
     latestMusicNote = data;
 });
-
 
 
 function createWorkerObservable(workerPath : string, inputObservable: Observable<preQuantizedMidiData>) {
@@ -26,6 +27,7 @@ function createWorkerObservable(workerPath : string, inputObservable: Observable
   
       worker.on('message', (message) => {
         subscriber.next(message);
+        console.log("catchMessage")
       });
   
       worker.on('error', (error) => {
@@ -42,6 +44,7 @@ function createWorkerObservable(workerPath : string, inputObservable: Observable
   
       inputObservable.subscribe((data) => {
         worker.postMessage(data);
+        console.log("catch postMessage")
       });
   
       return () => {
@@ -52,9 +55,12 @@ function createWorkerObservable(workerPath : string, inputObservable: Observable
 
 const generateNewSequence = noteSignals.pipe(
     filter((noteSignal: NoteSignals) => noteSignal.head === "generate"),
-    map((noteSignal: NoteSignals) => {
-        const midiData : quantizedMidiData[] = latestMusicNote.map((midi: MidiData) => quantizeMidi(midi, noteSignal.content as QuantizationConfig))
-        return configurePreQuantizedMidiData(midiData, noteSignal.content as QuantizationConfig, 32, 1.1)}));
+    map((noteSignal: NoteSignals) => noteSignal.content as GenerateSignal),
+    map((generateSignal: GenerateSignal) => generateSignal.quantizationInfo as QuantizationConfig), 
+    map((config: QuantizationConfig) => {
+        console.log(config.stepsPerQuarter);
+        const midiData : quantizedMidiData[] = latestMusicNote.map((midi: MidiData) => quantizeMidi(midi, config))
+        return configurePreQuantizedMidiData(midiData, config, 32, 1.1)}));
 
 const result = createWorkerObservable('./generate_worker.ts', generateNewSequence);
 
@@ -79,8 +85,9 @@ const server = createServer((socket: Socket) => {
 
     observable.pipe( 
         map((data: string) => data.replace(/[\u0000-\u0019\u007F-\u009F]/g, '')),
+        tap((data: string) => console.log("received:" + data)),
         map((data: string) => JSON.parse(data)),
-        catchError((err: Error) => {console.log(err); return of({})}),)
+        catchError((err: Error) => {console.log(err); return of({})}))
     .subscribe(noteSignals);   
 
     // write result back
@@ -98,4 +105,6 @@ server.listen(8080, () => {
     console.log('Server started.');
 });
 
-     
+server.on('connection', () => {
+    console.log('Client connected.');
+});     

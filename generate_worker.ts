@@ -2,6 +2,7 @@
 const { parentPort } = require("node:worker_threads");
 console.log('current directory: ', process.cwd())
 const preQuantizedMidiData  = require("./NoteSignals.js") ;
+// remember to generate new NoteSignals
 // const { INoteSequence }  = require( "@magenta/");
 const { MusicRNN } = require('@magenta/music/node/music_rnn');
 
@@ -24,9 +25,9 @@ parentPort.on("message", async msg  => {
                             msg.temperature
                         )
                         parentPort.postMessage(resultSeq);
-                        console.log('the result sequence is: ', resultSeq)
                     } catch (error){
                         console.log(error)
+                        console.log(msg)
                     }
         }
 

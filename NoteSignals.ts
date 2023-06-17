@@ -49,6 +49,9 @@ export interface QuantizationConfig{
 
 
 export function quantizeMidi(midi: MidiData, quantizationInfo: QuantizationConfig): quantizedMidiData{
+    
+    console.log(midi.startTime)
+    console.log(quantizationInfo.stepsPerQuarter)
     return {
         pitch: midi.pitch,
         quantizedStartStep: Math.round(midi.startTime * quantizationInfo.stepsPerQuarter),
